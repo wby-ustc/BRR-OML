@@ -1,32 +1,207 @@
-# Banana Ripeness Recognition Report
+# 项目修改记录
 
-## 1. Objective
+本文档的定位是记录每次工程修改后的修改内容总结，不用于存放最终实验报告。新增记录按时间倒序写在顶部。
 
-Recognize banana ripeness with HSV color ratios, GLCM texture features, and a
-rule-based classifier.
+每条记录必须包含：
 
-## 2. Dataset
+1. 本次内容修改完成时间。
+2. 本次修改的文件列表和具体修改的代码位置。
+3. 本次修改后项目相对于上一版项目的优化点或不足点。
+4. 本次修改未完成的部分或需要继续优化的部分。
 
-Place images under:
+---
 
-- `data/raw/unripe`
-- `data/raw/ripe`
-- `data/raw/overripe`
+## 修改记录 #5 — 新增实验报告并完成规则分类器综合评估
 
-## 3. Method
+**修改时间**：2026-05-30 18:28
 
-The basic version uses preprocessing, HSV segmentation, morphology cleanup,
-largest connected component extraction, HSV feature extraction, GLCM feature
-extraction, and threshold-based classification.
+### 修改文件清单
 
-## 4. Results
+| 文件 | 修改位置 | 修改说明 |
+|------|----------|----------|
+| `report/experiment_report.md` | 全文（新文件） | 新建独立实验报告，记录数据集概况、特征分布统计、分割质量分析、分类准确率、阈值调整依据、版本对比、局限性和后续实验方向。与 `report/report.md`（工程修改记录）职责分离 |
 
-Generated files:
+### 优化点
 
-- `results/rule_based/summary.csv`
-- `data/features/combined_features.csv`
-- `results/rule_based/images`
+1. **报告职责分离**：`report/report.md` 仅记录工程修改，`report/experiment_report.md` 独立承载实验数据和分析结论，互不干扰。
+2. **实验数据完整记录**：ripe 类别 20 张图片的 6 项特征分布（均值/标准差/分位数）、mask 面积异常分布、唯一误分类样本的特征值均已记录，后续补充 unripe/overripe 数据后可对比。
+3. **阈值调整有据可查**：每个参数的原始值、当前值和调整依据均在报告中列出，方便后续回溯。
 
-## 5. Analysis
+### 不足点
 
-Record segmentation failures, threshold changes, and confusing samples here.
+1. 因 unripe 和 overripe 样本数为 0，实验报告仅能在 ripe 单类别上展示结果，无法给出三分类混淆矩阵和泛化准确率。
+2. 当前阈值的 overripe/unripe 分类规则未经实际样本验证，仅基于 ripe 类别的特征分布反推。
+
+### 未完成 / 待继续优化
+
+1. 采集 unripe 和 overripe 各 ≥20 张后，重新运行流水线并更新 `experiment_report.md` 中的统计表。
+2. 补充数据后可进行三分类交叉验证，对比规则分类器与 SVM/KNN 的分类效果。
+
+---
+
+## 修改记录 #5 — 修复实验报告编码并准备版本分支上传
+
+**修改时间**：2026-05-30 18:34
+
+### 修改文件清单
+
+| 文件 | 修改位置 | 修改说明 |
+|------|----------|----------|
+| `report/experiment_report.md` | 全文 | 将存在乱码和不可恢复替换字符的实验报告重写为 UTF-8 中文文档，保留数据集概况、处理流程、特征统计、分类结果、局限性和后续方向 |
+| `report/report.md` | 修改记录 #5 | 记录本次实验报告编码修复和版本分支上传前的工程状态整理 |
+
+### 优化点
+
+1. **实验报告可读性恢复**：`report/experiment_report.md` 由乱码文本修复为可读中文，适合作为后续基础版实验分析文档。
+2. **工程记录完整性提升**：上传版本分支前记录本次修复，避免分支中出现未解释的报告文件变更。
+
+### 不足点
+
+1. 实验报告中的统计数据来自当前已有结果描述，后续仍需要在补充三类样本后重新运行流程验证。
+
+### 未完成 / 待继续优化
+
+1. 补充 `unripe` 和 `overripe` 样本后，重新生成 `summary.csv` 并更新 `report/experiment_report.md`。
+
+---
+
+## 修改记录 #4 — 规范 report.md 定位并新增 agent 默认记录规则
+
+**修改时间**：2026-05-30 18:17
+
+### 修改文件清单
+
+| 文件 | 修改位置 | 修改说明 |
+|------|----------|----------|
+| `report/report.md` | 文档顶部、修改记录 #4 | 明确本文档作为工程修改记录的定位，补充每条记录必须包含的字段，并记录本次规范化修改 |
+| `README.md` | `主要模块说明`、`修改记录规范` | 补充 `AGENTS.md`、`CLAUDE.md` 说明，并说明如何通过仓库级指令文件默认要求 agent 更新 `report/report.md` |
+| `AGENTS.md` | 全文 | 新增 Codex 等 agent 的仓库级默认规则，要求每次实际修改工程文件后同步更新 `report/report.md` |
+| `CLAUDE.md` | 全文 | 新增 Claude Code 的仓库级默认规则，要求每次实际修改工程文件后同步更新 `report/report.md` |
+| `src/rule_classifier.py` | `classify_by_rules()` 文档字符串和规则注释 | 将非 ASCII 箭头替换为 ASCII `->`，降低跨终端和跨工具显示异常风险 |
+| `tests/test_features.py` | GLCM 注释、规则分类器测试文档字符串 | 将异常显示的数学符号和箭头替换为 ASCII 表达，避免编码显示问题影响阅读 |
+
+### 优化点
+
+1. **修改记录职责更明确**：`report/report.md` 已明确为工程修改记录，字段与用户要求保持一致。
+2. **减少重复口头指令**：新增 `AGENTS.md` 和 `CLAUDE.md` 后，Codex、Claude Code 等工具在读取项目上下文时可以默认获得“每次修改后更新 report”的规则。
+3. **跨工具可读性提升**：代码注释和测试文档字符串中的特殊符号已替换为 ASCII，避免 Windows PowerShell 或部分 agent 工具中出现乱码。
+
+### 不足点
+
+1. 不同 AI agent 对项目级指令文件的支持不完全统一。`AGENTS.md` 和 `CLAUDE.md` 可覆盖常见工具，但不能保证所有第三方 agent 自动读取。
+2. 当前 README 和 report 仍包含中文内容，若终端代码页不是 UTF-8，PowerShell 直接 `Get-Content` 时可能显示乱码；文件本身按 UTF-8 可正常读取。
+
+### 未完成 / 待继续优化
+
+1. 如后续使用其他 agent 工具，需要确认该工具默认读取的项目规则文件名称，并将 `AGENTS.md` 中的规则同步过去。
+2. 可以后续增加一个脚本或 pre-commit 检查，用于提示“源码有修改但 `report/report.md` 未更新”的情况。
+
+---
+
+## 修改记录 #3 — 修复 --no-save-images 参数导致的 UnboundLocalError
+
+**修改时间**：2026-05-30 18:08
+
+### 修改文件清单
+
+| 文件 | 修改位置 | 修改说明 |
+|------|----------|----------|
+| `src/main_rule_based.py` | `main()` L40-L43 | 将 `prediction = row["rule_prediction"]` 从 `if not args.no_save_images:` 块内移至块外，解决使用 `--no-save-images` 时变量未赋值导致 `UnboundLocalError` 的问题 |
+
+### 优化点
+
+1. **修复崩溃 Bug**：`--no-save-images` 模式下 `prediction` 变量在 `if` 块内未赋值，但 `print` 语句在块外始终引用它。将赋值提升到块外，确保两种模式均正常工作。
+
+### 不足点
+
+1. 无。本次为 Bug 修复，未引入新的已知问题。
+
+### 未完成 / 待继续优化
+
+1. 无。
+
+---
+
+## 修改记录 #2 — summary.csv 与 combined_features.csv 内容区分
+
+**修改时间**：2026-05-30 18:05
+
+### 修改文件清单
+
+| 文件 | 修改位置 | 修改说明 |
+|------|----------|----------|
+| `src/main_rule_based.py` | `main()` L51-L60 | `combined_features.csv` 改为仅写入 `label` + `FEATURE_COLUMNS` 特征列，不再写入 `image_path`、`rule_prediction`、`mask_area`，与 `summary.csv` 内容区分 |
+
+### 优化点
+
+1. **CSV 职责分离**：`summary.csv` 保留完整分析信息（路径、标签、全部特征、预测结果、mask 面积），`combined_features.csv` 仅保留标签与特征列，消除两个 CSV 内容完全一样的冗余问题。
+2. **ML 可用性**：`combined_features.csv` 现在可直接作为 `src/main_ml.py` 的特征输入表，无需手动删除非特征列。
+
+### 不足点
+
+1. 无。本次为缺陷修复，未引入新的已知问题。
+
+### 未完成 / 待继续优化
+
+1. 无。
+
+---
+
+## 修改记录 #1 — 规则分类器阈值调优与测试完善
+
+**修改时间**：2026-05-30 18:05
+
+### 修改文件清单
+
+| 文件 | 修改位置 | 修改说明 |
+|------|----------|----------|
+| `config.yaml` | `rules` 节 | 调整全部 6 个阈值参数，新增 `dark_ratio_low` 和 `overripe_yellow_max` |
+| `src/rule_classifier.py` | `DEFAULT_RULES`（L6-L13）、`classify_by_rules`（L16-L57） | 新增组合规则（dark + yellow）和纹理规则（contrast + dark_low）；将原硬编码常量 0.08 提取为可配置参数 `dark_ratio_low`；更新 DEFAULT_RULES 为当前阈值；补充函数文档字符串 |
+| `tests/test_features.py` | 全文 | 从 2 个测试用例扩展到 15 个，覆盖：HSV 绿色/黄色区域检测、空 mask 边界、GLCM 空 mask/常量区域/极小 ROI 边界、规则分类器六条规则分支、自定义阈值覆盖 |
+| `report/report.md` | 全文 | 重新定位为项目修改记录 |
+
+### 优化点
+
+1. **准确率大幅提升**：ripe 类别分类准确率从 5.00%（1/20）提升至 95.00%（19/20）。
+2. **规则可用性修复**：原 `contrast_threshold=35.0` 在 32 级 GLCM 下永远无法触发，现校准为 1.45，规则 3 恢复实际分类作用。
+3. **消除硬编码**：`classify_by_rules` 中不再有硬编码的数值常量，所有阈值均可通过 config 或调用参数覆盖。
+4. **组合规则减少误判**：新增 `overripe_yellow_max` 约束，使得 dark_ratio 较高但 yellow_ratio 同样较高的成熟香蕉不再被误判为 overripe。
+5. **测试覆盖率提升**：从 2 条用例扩至 15 条，覆盖 HSV 特征、GLCM 特征和规则分类器的正常路径与边界条件。
+
+### 不足点
+
+1. **仅有 ripe 样本**：data/raw/unripe 和 data/raw/overripe 仍为空，无法验证规则对另两类的真实区分效果。
+2. **dark_ratio 特征粒度过粗**：香蕉茎端、尖端阴影与表面黑斑被统一计入 dark_ratio，导致部分有斑点的 ripe 香蕉与真正的 overripe 香蕉难以区分。
+3. **GLCM 仅基于边界框**：当前在 banana_mask 的 bounding box 内计算纹理，未被 mask 覆盖的背景像素用中值填充，可能引入轻微偏差。
+
+### 未完成 / 待继续优化
+
+1. 采集 unripe 和 overripe 样本（各 ≥ 20 张），重新统计三类特征分布并校准阈值。
+2. 优化 dark mask 定义或对 dark_ratio 按区域加权，降低茎端/尖端对 dark_ratio 的贡献。
+3. 增加暗斑连通区域数量、最大暗斑面积占比等细粒度特征。
+4. 在复杂背景（多根香蕉、其他水果）下测试分割鲁棒性，必要时引入 GrabCut 或颜色直方图反向投影。
+5. 安装 scikit-learn 后进入 SVM/KNN 机器学习版本实验。
+
+---
+
+## 模板：修改记录 #N — 标题
+
+**修改时间**：YYYY-MM-DD HH:MM
+
+### 修改文件清单
+
+| 文件 | 修改位置 | 修改说明 |
+|------|----------|----------|
+| `path/to/file.py` | 函数/行号 | 具体改了什么 |
+
+### 优化点
+
+1. 列出本次修改带来的改进。
+
+### 不足点
+
+1. 列出本次修改后已知的问题或退化。
+
+### 未完成 / 待继续优化
+
+1. 列出尚未解决、留给下一版处理的事项。

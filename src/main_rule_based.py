@@ -36,10 +36,10 @@ def main() -> None:
     for image_path in image_files:
         row, processed, mask = extract_features_for_image(image_path, config)
         rows.append(row)
+        prediction = row["rule_prediction"]
 
         if not args.no_save_images:
             stem = safe_stem(image_path)
-            prediction = row["rule_prediction"]
             annotated = draw_prediction(processed, mask, prediction)
             comparison = make_side_by_side(processed, mask, annotated)
             write_image(mask_dir / f"{stem}_mask.png", mask)
@@ -48,12 +48,17 @@ def main() -> None:
 
         print(f"{image_path} -> {prediction}")
 
+    from .dataset_builder import FEATURE_COLUMNS
+
     df = pd.DataFrame(rows)
     ensure_dir(summary_path.parent)
-    ensure_dir(feature_csv.parent)
     df.to_csv(summary_path, index=False, encoding="utf-8-sig")
-    df.to_csv(feature_csv, index=False, encoding="utf-8-sig")
     print(f"Saved summary: {summary_path}")
+
+    # Write a features-only CSV (label + feature columns) for downstream ML use.
+    feature_cols = ["label"] + [c for c in FEATURE_COLUMNS if c in df.columns]
+    ensure_dir(feature_csv.parent)
+    df[feature_cols].to_csv(feature_csv, index=False, encoding="utf-8-sig")
     print(f"Saved features: {feature_csv}")
 
 

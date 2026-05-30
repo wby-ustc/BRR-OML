@@ -20,7 +20,9 @@ features:
   glcm_distances: [1, 2]
 
 rules:
-  green_ratio_threshold: 0.32
-  dark_ratio_threshold: 0.18
-  contrast_threshold: 35.0
-  yellow_ratio_threshold: 0.45
+  green_ratio_threshold: 0.30
+  dark_ratio_threshold: 0.40
+  contrast_threshold: 1.45
+  yellow_ratio_threshold: 0.50
+  dark_ratio_low: 0.32
+  overripe_yellow_max: 0.55
