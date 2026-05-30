@@ -1,0 +1,26 @@
+paths:
+  raw_dir: data/raw
+  mask_dir: data/processed/masks
+  visualized_dir: data/processed/visualized
+  feature_csv: data/features/combined_features.csv
+  summary_csv: results/rule_based/summary.csv
+  rule_image_dir: results/rule_based/images
+  model_dir: models
+
+preprocessing:
+  max_size: 900
+  blur_kernel: 5
+
+segmentation:
+  min_area_ratio: 0.01
+  morphology_kernel: 7
+
+features:
+  glcm_levels: 32
+  glcm_distances: [1, 2]
+
+rules:
+  green_ratio_threshold: 0.32
+  dark_ratio_threshold: 0.18
+  contrast_threshold: 35.0
+  yellow_ratio_threshold: 0.45
