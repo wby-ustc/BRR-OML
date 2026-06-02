@@ -197,7 +197,8 @@ def test_rule_classifier_custom_thresholds():
 
     custom = {"green_ratio_threshold": 0.10}
     assert classify_by_rules(features, rules=custom) == "unripe"
-    assert classify_by_rules(features) == "ripe"
+    # With updated DEFAULT_RULES (green_ratio_threshold=0.012), gr=0.15 -> unripe
+    assert classify_by_rules(features) == "unripe"
 
 
 def test_rule_classifier_default_rules_complete():
@@ -209,5 +210,32 @@ def test_rule_classifier_default_rules_complete():
         "yellow_ratio_threshold",
         "dark_ratio_low",
         "overripe_yellow_max",
+        "contrast_high",
     }
     assert required.issubset(set(DEFAULT_RULES.keys()))
+
+
+def test_rule_classifier_contrast_high_triggers_overripe():
+    """High contrast alone (>= contrast_high) should trigger overripe even with low dark_ratio."""
+    features = {
+        "green_ratio": 0.001,
+        "yellow_ratio": 0.80,
+        "dark_ratio": 0.25,
+        "glcm_contrast": 2.5,
+    }
+    # green_ratio below threshold -> skip R1
+    # dark_ratio < 0.40 -> skip R2
+    # contrast 2.5 >= contrast_high 1.70 -> R3 triggers overripe
+    assert classify_by_rules(features) == "overripe"
+
+
+def test_rule_classifier_contrast_high_respects_priority():
+    """Rule 1 (green_ratio) takes priority over Rule 3 (contrast_high)."""
+    features = {
+        "green_ratio": 0.50,
+        "yellow_ratio": 0.30,
+        "dark_ratio": 0.10,
+        "glcm_contrast": 3.0,
+    }
+    # green_ratio 0.50 >= 0.012 -> R1 triggers unripe (even though contrast is very high)
+    assert classify_by_rules(features) == "unripe"

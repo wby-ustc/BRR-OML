@@ -19,10 +19,57 @@ features:
   glcm_levels: 32
   glcm_distances: [1, 2]
 
+# --------------------------------------------------------------------------
+# 规则分类阈值（基于 unripe 25 + ripe 25 + overripe 25 三分类统计，2026-06-01 联合校准）
+#
+# green_ratio_threshold 设计依据:
+#   unripe green_ratio: mean=0.188, q50=0.054, q25=0.020
+#   ripe green_ratio:   mean=0.055, q50=0.002, q75=0.009
+#   overripe green_ratio: mean=0.023, q50=0.000
+#   经 green_th × contrast_high 联合网格搜索（10×12=120 组合），
+#   0.012 在三种召回间取得最优平衡（unripe 88% / ripe 76% / overripe 96%）。
+#   green_th 提升会牺牲 unripe 召回，降低会增加 ripe 误判。
+#
+# dark_ratio_threshold 设计依据:
+#   unripe dark_ratio: mean=0.215, max=0.450
+#   ripe dark_ratio:   mean=0.326, q75=0.433, max=0.668
+#   overripe dark_ratio: mean=0.363, q50=0.385, max=0.559
+#   0.40 选取在 unripe 和 overripe 之间，触发 Rule 2 时需同时满足
+#   yellow_ratio <= 0.55 以降低 ripe 误判。仅 1 例 ripe 误触发 (IMG_161901)。
+#
+# overripe_yellow_max 设计依据:
+#   overripe yellow_ratio: mean=0.628, q25=0.455, min=0.274
+#   ripe yellow_ratio:     mean=0.778, q25=0.733
+#   0.55 低于 overripe 中位数(0.657)但高于 ripe q05(0.50)，
+#   与 dark_ratio >= 0.40 组合后仅捕获 dark 特别高 + yellow 特别低的样本。
+#   注：大量 overripe 的 yellow_ratio > 0.55 导致 Rule 2 漏判，
+#   这些样本由新的 Rule 3 (contrast_high) 捕获。
+#
+# contrast_high 设计依据（2026-06-01 新增）:
+#   overripe glcm_contrast: mean=3.05, q25=2.11, min=1.67
+#   ripe glcm_contrast:     mean=0.90, q75=1.01, max=1.74
+#   unripe glcm_contrast:   mean=1.59, q75=2.21, max=3.31
+#   经安全间隙分析：escape-R1 样本中，非 overripe max ct=1.61，
+#   overripe min ct=1.76。安全区间 (1.61, 1.76)，取中点 1.70。
+#   Rule 3（contrast_high=1.70）在 Rule 1/2 之后触发，捕获 24/25 overripe，
+#   是 overripe 召回从 64% 提升至 96% 的关键规则。
+#   注：oversripe 样本 pexels-duane-mendes (ct=1.67, gr=0.54)
+#   被 Rule 1 优先捕获为 unripe，不经过 Rule 3。
+#
+# contrast_threshold / dark_ratio_low 设计依据:
+#   作为 Rule 4 安全网，在 contrast_high 因数据变化无法覆盖时提供备用路径。
+#   当前数据下 Rule 4 较少触发（因其条件被 Rule 3 包含或样本已被 Rule 2 捕获）。
+#
+# yellow_ratio_threshold 设计依据:
+#   作为 Rule 5 fallback，0.50 足以捕获所有黄色主导的 ripe 样本。
+#   unripe 漏网样本（gr<0.012）在 HSV 空间中 yellow_ratio 均 >0.66，
+#   无法通过调整此阈值区分。
+# --------------------------------------------------------------------------
 rules:
-  green_ratio_threshold: 0.30
+  green_ratio_threshold: 0.012
   dark_ratio_threshold: 0.40
   contrast_threshold: 1.45
   yellow_ratio_threshold: 0.50
   dark_ratio_low: 0.32
   overripe_yellow_max: 0.55
+  contrast_high: 1.70
