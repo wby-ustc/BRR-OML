@@ -65,6 +65,116 @@ features:
 #   unripe 漏网样本（gr<0.012）在 HSV 空间中 yellow_ratio 均 >0.66，
 #   无法通过调整此阈值区分。
 # --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# 摄像头预处理参数（独立于静态图片模式）
+# --------------------------------------------------------------------------
+camera_preprocessing:
+  white_balance: true       # 开启简单白平衡，减少环境光色温影响
+  wb_percentile: 1.0        # 白平衡 clipping 百分位
+  blur_kernel: 5
+  equalize: true            # CLAHE 亮度均衡化
+
+camera:
+  device_index: 0
+  width: 1280
+  height: 720
+  display_fps: 30
+  inference_interval_ms: 500
+  realtime_max_size: 640
+  mirror: false
+
+# --------------------------------------------------------------------------
+# 摄像头实时规则分类阈值（与静态图片 rules 节独立）
+#
+# 设计理念：摄像头环境存在自动曝光、白平衡偏移、传感器噪声和复杂背景，
+# 静态图片校准的阈值在摄像头下过于激进。camera_rules 通过以下调整提升
+# 摄像头场景的 ripe 召回和光照鲁棒性：
+#
+# green_ratio_threshold = 0.06（静态: 0.012）
+#   摄像头下 ripe 香蕉常因边缘阴影、传感器噪声产生 0.02–0.05 的伪绿色。
+#   0.012 会导致大量 ripe 被误判为 unripe。提升至 0.06 仅对真正青香蕉触发。
+#
+# dark_ratio_threshold = 0.48（静态: 0.40）
+#   摄像头暗光环境下 dark_ratio 整体偏高。提升至 0.48 减少 ripe 误判 overripe。
+#
+# contrast_high = 1.95（静态: 1.70，上版摄像头: 2.20）
+#   摄像头传感器噪声和压缩伪影会抬高 GLCM contrast。ripe 在摄像头下
+#   contrast 可达 1.8–2.1。从 2.20 下调至 1.95 以更好地捕获 borderline
+#   overripe（静态规则下 contrast 1.5-1.7 的过熟样本在摄像头下可能略高）。
+#
+# contrast_threshold = 1.65（静态: 1.45）
+#   同理调整，作为 Rule 4 安全网时需结合 dark_ratio >= dark_ratio_low。
+#
+# yellow_ratio_threshold = 0.42（静态: 0.50，上版摄像头: 0.40）
+#   摄像头下黄色饱和度偏低（自动白平衡偏冷、传感器色彩还原不足）。
+#   从 0.40 微调至 0.42，在保留 ripe 召回的同时减少极端非香蕉黄色物体的误触发。
+#
+# dark_ratio_low = 0.38（静态: 0.32）
+#   配合 contrast_threshold 使用，上移以匹配摄像头环境更高的 dark baseline。
+#
+# overripe_yellow_max = 0.60（静态: 0.55）
+#   摄像头下 overripe 的 yellow_ratio 分布略高。轻微放宽上限。
+# --------------------------------------------------------------------------
+camera_rules:
+  green_ratio_threshold: 0.06
+  dark_ratio_threshold: 0.48
+  contrast_high: 1.95
+  contrast_threshold: 1.65
+  yellow_ratio_threshold: 0.42
+  dark_ratio_low: 0.38
+  overripe_yellow_max: 0.60
+
+# --------------------------------------------------------------------------
+# 香蕉候选区域验证阈值（摄像头实时模式，严格多条件过滤）
+#
+# 设计原则：dark_ratio 不作为香蕉存在的依据（黑色衣服/屏幕/阴影会通过），
+# 而是作为否决条件。香蕉存在性由 green + yellow + brown 颜色占比、
+# 旋转边界框长宽比和填充度共同判定。
+#
+# 2026-06-03 微调：基于最新三类样本复测结果（准确率 94.67%），
+# 对摄像头候选验证阈值做了适度收紧，以进一步减少非香蕉物体误检。
+#
+# min_area_ratio / max_area_ratio:
+#   mask 面积占图像比例范围。上限 0.45 过滤整块衣服、屏幕、墙壁等大面积误分割。
+# min_banana_color_ratio:
+#   (green + yellow + brown) / mask_pixels 下限。从 0.20 收紧至 0.22。
+# min_yellow_green_ratio:
+#   (green + yellow) / mask_pixels 下限。从 0.12 收紧至 0.15，
+#   减少纯棕色/暗色非香蕉区域通过验证。
+# max_dark_ratio_for_presence:
+#   暗色占比上限。若 > 65% 像素被判定为 dark，很可能是衣物/屏幕/阴影。
+# min_rotated_aspect / max_rotated_aspect:
+#   使用 cv2.minAreaRect 的旋转边界框长边/短边比。香蕉通常 1.4–8.0。
+# min_extent:
+#   mask_area / rotated_rect_area 下限。从 0.25 收紧至 0.28，
+#   过滤散乱的碎片化分割（人、背景等）。
+# use_center_roi / roi_width_ratio / roi_height_ratio:
+#   只对画面中心区域检测。边缘出现的分割通常不是用户放置的香蕉。
+# --------------------------------------------------------------------------
+candidate:
+  min_area_ratio: 0.01
+  max_area_ratio: 0.45
+  min_banana_color_ratio: 0.22
+  min_yellow_green_ratio: 0.15
+  max_dark_ratio_for_presence: 0.65
+  min_rotated_aspect: 1.4
+  max_rotated_aspect: 8.0
+  min_extent: 0.28
+  use_center_roi: true
+  roi_width_ratio: 0.70
+  roi_height_ratio: 0.70
+
+# --------------------------------------------------------------------------
+# 摄像头实时稳定性参数
+#
+# 2026-06-03 微调：confirm_frames 从 3 增至 4（约 2s 确认延迟 @ 500ms 推理间隔），
+# 进一步减少短暂误分割导致的类别跳变；lost_frames 从 2 增至 3，防止短暂遮挡
+# （如手部经过）立即丢失香蕉确认状态。
+# --------------------------------------------------------------------------
+stability:
+  confirm_frames: 4
+  lost_frames: 3
+
 rules:
   green_ratio_threshold: 0.012
   dark_ratio_threshold: 0.40
@@ -73,3 +183,21 @@ rules:
   dark_ratio_low: 0.32
   overripe_yellow_max: 0.55
   contrast_high: 1.70
+
+# --------------------------------------------------------------------------
+# 进阶版 ML 配置（置信度策略 + 模型对比）
+#
+# min_confidence: top-1 概率低于此值时标记为"低置信"并显示规则分类参考。
+#   KNN 在 3 类、75 样本下 top-1 概率通常在 60%–100%，
+#   低于 55% 通常意味着该样本处于类别边界，可参考规则分类。
+#
+# smooth_window: 摄像头实时模式下对最近 N 帧概率做滑动平均。
+#   3 帧（约 1.5s @ 500ms 推理间隔）可平滑 KNN 概率波动。
+#
+# show_model_comparison: 单图/截图识别时是否同时显示四种方法的预测对比。
+#   false 时仅使用当前选定方法，true 时每帧/每图计算全部 4 种方法。
+# --------------------------------------------------------------------------
+ml:
+  min_confidence: 0.55
+  smooth_window: 3
+  show_model_comparison: false
