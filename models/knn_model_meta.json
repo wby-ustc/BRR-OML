@@ -1,0 +1,19 @@
+{
+  "model_name": "knn",
+  "classes": [
+    "overripe",
+    "ripe",
+    "unripe"
+  ],
+  "class_counts": {
+    "overripe": 25,
+    "ripe": 25,
+    "unripe": 25
+  },
+  "feature_csv": "E:\\postgraduate\\L1_2\\BRR-HGSK\\banana_ripeness_hgsk\\data\\features\\combined_features.csv",
+  "feature_csv_mtime": "2026-06-03T22:29:46.060142",
+  "train_time": "2026-06-03T22:30:08.881381",
+  "n_samples": 75,
+  "test_accuracy": 0.9130434782608695,
+  "cv_accuracy": 0.9466666666666667
+}

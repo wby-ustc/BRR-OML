@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +17,7 @@ from sklearn.svm import SVC
 from .dataset_builder import FEATURE_COLUMNS
 
 CLASSES = ["unripe", "ripe", "overripe"]
+REQUIRED_CLASSES: set[str] = {"unripe", "ripe", "overripe"}
 
 
 def load_feature_data(
@@ -121,3 +124,92 @@ def get_model_info(model: Pipeline) -> dict[str, Any]:
         if hasattr(clf, "get_params"):
             info["params"] = {k: v for k, v in clf.get_params().items() if not k.startswith("_")}
     return info
+
+
+# ---------------------------------------------------------------------------
+# Model validation — prevents single-class debug models from being used
+# ---------------------------------------------------------------------------
+
+
+def validate_model_classes(
+    model: Pipeline,
+    required_classes: set[str] | None = None,
+) -> tuple[bool, str]:
+    """Check that a trained model covers all required ripeness classes.
+
+    A single-class model (e.g. trained with ``--allow-single-class``) will
+    always predict that one class with 100 % confidence, which is misleading.
+    This function gates model usage on having the full label set.
+
+    Parameters
+    ----------
+    model : Pipeline
+        Fitted scikit-learn pipeline.
+    required_classes : set[str] or None
+        Required labels.  Defaults to ``{"unripe", "ripe", "overripe"}``.
+
+    Returns
+    -------
+    valid : bool
+    reason : str
+        Human-readable explanation (empty if valid).
+    """
+    required = required_classes or REQUIRED_CLASSES
+
+    if not hasattr(model, "classes_"):
+        return False, "模型未训练（缺少 classes_ 属性）"
+
+    model_classes = set(str(c) for c in model.classes_)
+    if model_classes != required:
+        missing = required - model_classes
+        extra = model_classes - required
+        parts = []
+        if missing:
+            parts.append(f"缺少类别: {sorted(missing)}")
+        if extra:
+            parts.append(f"多余类别: {sorted(extra)}")
+        return False, (
+            f"模型类别不完整（当前: {sorted(model_classes)}，需要: {sorted(required)}）；"
+            + "；".join(parts)
+        )
+
+    return True, ""
+
+
+# ---------------------------------------------------------------------------
+# Model metadata (saved alongside the .pkl file for runtime checks)
+# ---------------------------------------------------------------------------
+
+_META_SUFFIX = "_meta.json"
+
+
+def save_model_meta(model_path: str | Path, meta: dict[str, Any]) -> Path:
+    """Save a model metadata JSON next to the model file.
+
+    Example: ``knn_model.pkl`` → ``knn_model_meta.json``.
+    """
+    pkl_path = Path(model_path)
+    meta_path = pkl_path.with_name(pkl_path.stem + _META_SUFFIX)
+    serializable: dict[str, Any] = {}
+    for k, v in meta.items():
+        if isinstance(v, (str, int, float, bool, list, dict, type(None))):
+            serializable[k] = v
+        else:
+            serializable[k] = str(v)
+    meta_path.write_text(
+        json.dumps(serializable, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8",
+    )
+    return meta_path
+
+
+def load_model_meta(model_path: str | Path) -> dict[str, Any] | None:
+    """Load model metadata JSON if it exists; return ``None`` otherwise."""
+    pkl_path = Path(model_path)
+    meta_path = pkl_path.with_name(pkl_path.stem + _META_SUFFIX)
+    if not meta_path.exists():
+        return None
+    try:
+        return json.loads(meta_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
